@@ -3,6 +3,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: {{ template "harbor.fullname" . }}-notary-signer
+  namespace: {{ .Release.Namespace | quote }}
   labels:
 {{ include "harbor.labels" . | indent 4 }}
     component: notary-signer
@@ -24,18 +25,54 @@ spec:
         imagePullPolicy: {{ .Values.notary.signer.image.pullPolicy }}
         resources:
 {{ toYaml .Values.notary.signer.resources | indent 10 }}
+        command: ["sudo"]
+        args: ["-E","-u","notary","sh","-c","/migrations/migrate.sh && /bin/notary-signer -config=/etc/notary/signer-config.postgres.json -logf=logfmt"]
         env:
         - name: MIGRATIONS_PATH
           value: migrations/signer/postgresql
-        - name: DB_URL
-          value: {{ template "harbor.database.notarySigner" . }}
         - name: NOTARY_SIGNER_DEFAULTALIAS
           value: defaultalias
+        - name: DB_URL
+          valueFrom:
+            secretKeyRef:
+              name: "harbor-harbor-notary"
+              key: DB_URL_signer
         volumeMounts:
-        - name: notary-config
-          mountPath: /etc/notary
+        - name: notary-config-cacrt
+          mountPath: /etc/notary/notary-signer-ca.crt
+          subPath: notary-signer-ca.crt
+        - name: notary-config-crt
+          mountPath: /etc/notary/notary-signer.crt
+          subPath: notary-signer.crt
+        - name: notary-config-key
+          mountPath: /etc/notary/notary-signer.key
+          subPath: notary-signer.key
+        - name: server-config-postgres
+          mountPath: /etc/notary/server-config.postgres.json
+          subPath: server-config.postgres.json
+        - name: signer-config-postgres
+          mountPath: /etc/notary/signer-config.postgres.json
+          subPath: signer-config.postgres.json
+        - name: root-certificate
+          mountPath: /root.crt
+          subPath: tokenServiceRootCertBundle
       volumes:
-      - name: notary-config
+      - name: notary-config-cacrt
         configMap:
           name: "{{ template "harbor.fullname" . }}-notary"
+      - name: notary-config-crt
+        configMap:
+          name: "{{ template "harbor.fullname" . }}-notary"
+      - name: notary-config-key
+        configMap:
+          name: "{{ template "harbor.fullname" . }}-notary"
+      - name: server-config-postgres
+        secret:
+          secretName: "{{ template "harbor.fullname" . }}-notary"
+      - name: signer-config-postgres
+        secret:
+          secretName: "{{ template "harbor.fullname" . }}-notary"          
+      - name: root-certificate
+        secret:
+          secretName: "{{ template "harbor.fullname" . }}-ui"          
 {{ end }}

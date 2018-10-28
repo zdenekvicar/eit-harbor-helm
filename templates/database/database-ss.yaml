@@ -3,6 +3,7 @@ apiVersion: apps/v1beta2
 kind: StatefulSet
 metadata:
   name: "{{ template "harbor.fullname" . }}-database"
+  namespace: {{ .Release.Namespace | quote }}
   labels:
 {{ include "harbor.labels" . | indent 4 }}
     component: database

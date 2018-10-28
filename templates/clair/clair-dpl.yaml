@@ -3,6 +3,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: {{ template "harbor.fullname" . }}-clair
+  namespace: {{ .Release.Namespace | quote }}
   labels:
 {{ include "harbor.labels" . | indent 4 }}
     component: clair
@@ -33,8 +34,8 @@ spec:
           subPath: config.yaml
       volumes:
       - name: clair-config
-        configMap:
-          name: "{{ template "harbor.fullname" . }}-clair"
+        secret:
+          secretName: "{{ template "harbor.fullname" . }}-clair"
           items:
             - key: config.yaml
               path: config.yaml
